@@ -34,9 +34,13 @@ export function SudokuBoard({
   onSelect,
 }: BoardProps) {
   const { colors, spacing, radius } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
 
-  const side = Math.min(width - spacing.xl * 2, 420);
+  // 420 on every device put a phone-sized grid in the middle of a 13" iPad.
+  // The height term leaves room for the number pad below, which a square board
+  // sized only from width would push off a short window.
+  const isTablet = width >= 700;
+  const side = Math.min(width - spacing.xl * 2, height * 0.55, isTablet ? 700 : 420);
   const cell = side / SIZE;
   const selectedRow = selected === null ? -1 : rowOf(selected);
   const selectedCol = selected === null ? -1 : colOf(selected);
