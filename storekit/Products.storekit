@@ -1,0 +1,35 @@
+{
+  "identifier": "0FDFB2E2-11C7-40B5-B79A-EA1BB9388D15",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "811A578D-8A1F-4942-BAC9-A04E62AF04F6",
+      "localizations": [
+        {
+          "description": "sudokly remove ads lifetime unlock",
+          "displayName": "sudokly remove ads",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.altixcode.sudokly.removeads",
+      "referenceName": "sudokly remove ads",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_lastSynchronizedDate": 0,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}
