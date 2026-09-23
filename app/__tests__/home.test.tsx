@@ -173,4 +173,45 @@ describe("the game screen", () => {
     expect(solvedCalls.length).toBeGreaterThanOrEqual(1);
     expect(usePuzzleStore.getState().solved[todayKey]).toBeDefined();
   });
+
+  it("locks the board once the puzzle is solved — tapping a cell and a digit changes nothing", async () => {
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await renderWithProviders(<Home />);
+
+    const { solution, givens } = usePuzzleStore.getState();
+    usePuzzleStore.setState({ grid: [...solution] });
+    const { getByLabelText } = await renderWithProviders(<Home />);
+
+    const blank = givens.findIndex((v) => v === 0);
+    const row = Math.floor(blank / 9) + 1;
+    const col = (blank % 9) + 1;
+    const cellLabel = t("cellLabel", {
+      row: String(row),
+      col: String(col),
+      value: String(solution[blank]),
+    });
+
+    await fireEvent.press(getByLabelText(cellLabel));
+    await fireEvent.press(getByLabelText("1"));
+
+    // Still the solved grid: the tap on the number pad did nothing, because
+    // there was no selected cell for it to write into and the cell itself
+    // refused selection.
+    expect(usePuzzleStore.getState().grid).toEqual(solution);
+  });
+
+  it('offers a "Next Level" button once solved, which loads a new, harder puzzle', async () => {
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await renderWithProviders(<Home />);
+
+    const { solution } = usePuzzleStore.getState();
+    usePuzzleStore.setState({ grid: [...solution], difficulty: "easy" });
+    const { getByText } = await renderWithProviders(<Home />);
+
+    const solvedGrid = usePuzzleStore.getState().grid;
+    await fireEvent.press(getByText(t("nextLevelCta")));
+
+    expect(usePuzzleStore.getState().difficulty).toBe("medium");
+    expect(usePuzzleStore.getState().grid).not.toEqual(solvedGrid);
+  });
 });

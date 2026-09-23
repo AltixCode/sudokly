@@ -162,4 +162,17 @@ export function gradeOf(grid: Grid): number {
   return working.filter((v) => v === 0).length;
 }
 
+/**
+ * The level a "Next Level" button lands on after a solve.
+ *
+ * A puzzle is seeded from `${day}:${difficulty}`, so replaying the same day
+ * and difficulty would hand back the exact grid just solved. Stepping
+ * forward through DIFFICULTIES — wrapping from the hardest back to the
+ * easiest — is what makes "next" actually mean a different puzzle.
+ */
+export function nextDifficulty(current: Difficulty): Difficulty {
+  const i = DIFFICULTIES.indexOf(current);
+  return DIFFICULTIES[(i + 1) % DIFFICULTIES.length] as Difficulty;
+}
+
 export { SIZE };

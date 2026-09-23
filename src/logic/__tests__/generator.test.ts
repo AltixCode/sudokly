@@ -1,5 +1,11 @@
 import { CELLS, isSolved, parseGrid } from "../grid";
-import { DIFFICULTIES, type Difficulty, generate, gradeOf } from "../generator";
+import {
+  DIFFICULTIES,
+  type Difficulty,
+  generate,
+  gradeOf,
+  nextDifficulty,
+} from "../generator";
 import { hasUniqueSolution, solve } from "../solver";
 import { seededRng } from "../daily";
 
@@ -85,5 +91,22 @@ describe("gradeOf", () => {
         )!,
       ),
     ).toBe(0);
+  });
+});
+
+describe("nextDifficulty", () => {
+  // The "Next Level" button on a solved puzzle steps forward through
+  // DIFFICULTIES rather than replaying the same day+difficulty seed, which
+  // would hand back the identical puzzle just solved.
+  it("steps to the next harder level for every level but the last", () => {
+    for (let i = 0; i < DIFFICULTIES.length - 1; i += 1) {
+      const current = DIFFICULTIES[i] as Difficulty;
+      const next = DIFFICULTIES[i + 1] as Difficulty;
+      expect(nextDifficulty(current)).toBe(next);
+    }
+  });
+
+  it("wraps from the hardest level back to the easiest", () => {
+    expect(nextDifficulty("evil")).toBe("gentle");
   });
 });

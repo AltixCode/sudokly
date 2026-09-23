@@ -15,6 +15,8 @@ interface BoardProps {
   /** Cells the current hint is pointing at. */
   highlighted: number[];
   onSelect: (index: number) => void;
+  /** True once the puzzle is solved — a finished board is read-only. */
+  disabled?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export function SudokuBoard({
   selected,
   highlighted,
   onSelect,
+  disabled = false,
 }: BoardProps) {
   const { colors, spacing, radius } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -40,7 +43,11 @@ export function SudokuBoard({
   // The height term leaves room for the number pad below, which a square board
   // sized only from width would push off a short window.
   const isTablet = width >= 700;
-  const side = Math.min(width - spacing.xl * 2, height * 0.55, isTablet ? 700 : 420);
+  const side = Math.min(
+    width - spacing.xl * 2,
+    height * 0.55,
+    isTablet ? 700 : 420,
+  );
   const cell = side / SIZE;
   const selectedRow = selected === null ? -1 : rowOf(selected);
   const selectedCol = selected === null ? -1 : colOf(selected);
@@ -104,7 +111,8 @@ export function SudokuBoard({
                 key={col}
                 accessibilityRole="button"
                 accessibilityLabel={label}
-                accessibilityState={{ selected: isSelected }}
+                accessibilityState={{ selected: isSelected, disabled }}
+                disabled={disabled}
                 onPress={() => onSelect(index)}
                 style={{
                   width: cell,

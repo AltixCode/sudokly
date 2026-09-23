@@ -14,7 +14,11 @@ import { SudokuBoard } from "@/components/SudokuBoard";
 import { Button, Screen, Text } from "@/components/ui";
 import { t, type TranslationKey } from "@/i18n";
 import { SIZE, colOf, rowOf } from "@/logic/grid";
-import { DIFFICULTIES, type Difficulty } from "@/logic/generator";
+import {
+  DIFFICULTIES,
+  type Difficulty,
+  nextDifficulty,
+} from "@/logic/generator";
 import { dateKey } from "@/logic/daily";
 import { FREE_HINTS, usePuzzleStore } from "@/store/usePuzzleStore";
 import { usePremiumStore } from "@/store/usePremiumStore";
@@ -111,9 +115,28 @@ export default function Game() {
     [load, dayKey, today, isPremium],
   );
 
+  // Solving a puzzle never hands you today's puzzle again — the seed is
+  // `${day}:${difficulty}`, so replaying the same difficulty would just be
+  // the grid the player already finished. Stepping to the next difficulty is
+  // what makes "Next Level" actually a new puzzle.
+  const nextLevel = useCallback(() => {
+    pickDifficulty(nextDifficulty(difficulty));
+  }, [pickDifficulty, difficulty]);
+
+  // A cell tap or a digit press once the puzzle is solved must be inert, not
+  // just visually locked: a tester reported the board still accepted input
+  // after the win popup appeared.
+  const selectCell = useCallback(
+    (index: number) => {
+      if (isSolvedNow) return;
+      setSelected(index);
+    },
+    [isSolvedNow],
+  );
+
   const enter = useCallback(
     (value: number) => {
-      if (selected === null) return;
+      if (isSolvedNow || selected === null) return;
       if (noteMode) {
         toggleMark(selected, value);
         return;
@@ -121,7 +144,7 @@ export default function Game() {
       setCell(selected, value);
       void Haptics.selectionAsync();
     },
-    [selected, noteMode, toggleMark, setCell],
+    [isSolvedNow, selected, noteMode, toggleMark, setCell],
   );
 
   const doHint = useCallback(() => {
@@ -209,9 +232,19 @@ export default function Game() {
             conflicts={conflicts}
             selected={selected}
             highlighted={lastHint ? [lastHint.index] : []}
-            onSelect={setSelected}
+            onSelect={selectCell}
+            disabled={isSolvedNow}
           />
         </View>
+
+        {isSolvedNow ? (
+          <Button
+            label={t("nextLevelCta")}
+            onPress={nextLevel}
+            fullWidth
+            style={{ marginTop: spacing.md }}
+          />
+        ) : null}
 
         {conflicts.length > 0 ? (
           <Text
