@@ -107,6 +107,23 @@ describe("nextDifficulty", () => {
   });
 
   it("wraps from the hardest level back to the easiest", () => {
-    expect(nextDifficulty("evil")).toBe("gentle");
+    expect(nextDifficulty("evil")).toBe("training");
+  });
+});
+
+describe("training difficulty", () => {
+  // A tester found "gentle" too hard and asked for something easier still.
+  // Training sits below gentle with more starting clues, not a reworded
+  // gentle — this proves it is genuinely easier rather than a relabelling.
+  it("leaves strictly more clues than gentle", () => {
+    const training = generate("training", seededRng(42));
+    const gentle = generate("gentle", seededRng(42));
+    const clueCount = (p: typeof training) =>
+      p.grid.filter((v) => v !== 0).length;
+    expect(clueCount(training)).toBeGreaterThan(clueCount(gentle));
+  });
+
+  it("is the first, easiest entry in DIFFICULTIES", () => {
+    expect(DIFFICULTIES[0]).toBe("training");
   });
 });

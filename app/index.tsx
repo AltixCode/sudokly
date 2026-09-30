@@ -22,11 +22,13 @@ import {
 import { dateKey } from "@/logic/daily";
 import { FREE_HINTS, usePuzzleStore } from "@/store/usePuzzleStore";
 import { usePremiumStore } from "@/store/usePremiumStore";
+import { useSoundEffects } from "@/hooks/useSoundEffects";
 import { useTheme } from "@/theme";
 
 const MIN_TOUCH_TARGET = 44;
 
 const DIFFICULTY_KEY: Record<Difficulty, TranslationKey> = {
+  training: "diffTraining",
   gentle: "diffGentle",
   easy: "diffEasy",
   medium: "diffMedium",
@@ -71,6 +73,8 @@ export default function Game() {
 
   const conflicts = usePuzzleStore((s) => s.conflictIndices)();
   const isSolvedNow = usePuzzleStore((s) => s.isSolvedNow)();
+  const solution = usePuzzleStore((s) => s.solution);
+  const playSound = useSoundEffects();
 
   // Load today's puzzle on first mount when nothing is in progress.
   useEffect(() => {
@@ -105,7 +109,7 @@ export default function Game() {
     [router],
   );
 
-  const pickDifficulty = useCallback(
+  const switchTo = useCallback(
     (next: Difficulty) => {
       announced.current = false;
       setSelected(null);
@@ -113,6 +117,33 @@ export default function Game() {
       load(dayKey ?? dateKey(today), next, today, isPremium);
     },
     [load, dayKey, today, isPremium],
+  );
+
+  // A tester reported losing in-progress answers to a mistake tap on another
+  // level chip. An unsolved board with at least one answer on it (a clue
+  // does not count — those were never at risk) is progress a switch would
+  // silently erase, so it is confirmed first. A freshly loaded or already
+  // solved board has nothing to lose and switches immediately — that is what
+  // "Next Level" relies on to feel instant right after a solve.
+  const pickDifficulty = useCallback(
+    (next: Difficulty) => {
+      const hasProgress = grid.some(
+        (value, i) => value !== 0 && givens[i] === 0,
+      );
+      if (!isSolvedNow && hasProgress) {
+        Alert.alert(t("switchLevelConfirmTitle"), t("switchLevelConfirmBody"), [
+          { text: t("cancel"), style: "cancel" },
+          {
+            text: t("switchLevelConfirmCta"),
+            style: "destructive",
+            onPress: () => switchTo(next),
+          },
+        ]);
+        return;
+      }
+      switchTo(next);
+    },
+    [grid, givens, isSolvedNow, switchTo],
   );
 
   // Solving a puzzle never hands you today's puzzle again — the seed is
@@ -143,8 +174,13 @@ export default function Game() {
       }
       setCell(selected, value);
       void Haptics.selectionAsync();
+      if (value === 0) {
+        playSound("tap");
+      } else {
+        playSound(solution[selected] === value ? "pop" : "fail");
+      }
     },
-    [isSolvedNow, selected, noteMode, toggleMark, setCell],
+    [isSolvedNow, selected, noteMode, toggleMark, setCell, solution, playSound],
   );
 
   const doHint = useCallback(() => {
@@ -277,29 +313,41 @@ export default function Game() {
           </View>
         ) : null}
 
-        <View
-          style={[styles.chips, { gap: spacing.xs, marginTop: spacing.lg }]}
-        >
-          {Array.from({ length: SIZE }, (_, i) => i + 1).map((value) => (
-            <Pressable
-              key={value}
-              accessibilityRole="button"
-              accessibilityLabel={String(value)}
-              onPress={() => enter(value)}
-              style={{
-                minWidth: MIN_TOUCH_TARGET,
-                minHeight: MIN_TOUCH_TARGET,
-                flexGrow: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: radius.md,
-                backgroundColor: colors.surfaceAlt,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
+        <View style={{ gap: spacing.xs, marginTop: spacing.lg }}>
+          {/* A phone-style 3×3 grid (1-2-3 / 4-5-6 / 7-8-9) — a tester asked
+              for this instead of a wrapping row that split 8 and 9 onto
+              their own short second line. */}
+          {[0, 1, 2].map((rowIndex) => (
+            <View
+              key={rowIndex}
+              testID={`numpad-row-${rowIndex}`}
+              style={[styles.row, { gap: spacing.xs }]}
             >
-              <Text variant="bodyStrong">{String(value)}</Text>
-            </Pressable>
+              {[1, 2, 3].map((col) => {
+                const value = rowIndex * 3 + col;
+                return (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityLabel={String(value)}
+                    onPress={() => enter(value)}
+                    style={{
+                      flex: 1,
+                      minWidth: MIN_TOUCH_TARGET,
+                      minHeight: MIN_TOUCH_TARGET,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: radius.md,
+                      backgroundColor: colors.surfaceAlt,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <Text variant="bodyStrong">{String(value)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           ))}
         </View>
 

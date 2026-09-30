@@ -14,6 +14,7 @@ import { CELLS, SIZE, type Grid, candidates } from "./grid";
 import { countSolutions, findHint } from "./solver";
 
 export const DIFFICULTIES = [
+  "training",
   "gentle",
   "easy",
   "medium",
@@ -28,8 +29,12 @@ export type Difficulty = (typeof DIFFICULTIES)[number];
  * A target, not a guarantee: removal stops early whenever taking another clue would make the
  * puzzle ambiguous, so a level occasionally lands a few clues above its target. That is the
  * right way round — a slightly easy puzzle is a disappointment, an ambiguous one is broken.
+ *
+ * `training` exists because a tester found `gentle` too hard and asked for something easier
+ * still, not a relabelled `gentle` — it leaves noticeably more clues.
  */
 const CLUE_TARGET: Record<Difficulty, number> = {
+  training: 53,
   gentle: 45,
   easy: 38,
   medium: 32,

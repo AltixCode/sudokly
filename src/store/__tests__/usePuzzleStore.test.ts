@@ -230,7 +230,7 @@ describe("persistence", () => {
     await usePuzzleStore.getState().persist();
 
     reset();
-    await usePuzzleStore.getState().hydrate();
+    await usePuzzleStore.getState().hydrate(today);
     expect(usePuzzleStore.getState().dayKey).toBe(todayKey);
     expect(usePuzzleStore.getState().grid[i]).toBe(4);
   });
@@ -240,7 +240,7 @@ describe("persistence", () => {
       PUZZLE_CACHE_KEY,
       '{"dayKey":"2026-09-15","grid":"short"}',
     );
-    await usePuzzleStore.getState().hydrate();
+    await usePuzzleStore.getState().hydrate(today);
     expect(usePuzzleStore.getState().dayKey).toBeNull();
     expect(usePuzzleStore.getState().grid.every((v) => v === 0)).toBe(true);
   });
@@ -253,7 +253,53 @@ describe("persistence", () => {
         solved: { "2026-09-15": { difficulty: "easy", ms: 1, hintsUsed: 0 } },
       }),
     );
-    await usePuzzleStore.getState().hydrate();
+    await usePuzzleStore.getState().hydrate(today);
     expect(usePuzzleStore.getState().solved["2026-09-15"]).toBeDefined();
+  });
+
+  // A tester reported the game looking identical day after day. It wasn't the
+  // generator (seeded by `${day}:${difficulty}`, proven different per day in
+  // generator.test.ts) — it was this: a puzzle persisted on one calendar day
+  // was restored as-is on every later launch, because the game screen only
+  // auto-loads when `dayKey` is `null`, and hydrate() never was null once
+  // anything had ever been saved. Rehydrating a stale day must clear it, not
+  // carry it forward, so the game screen's own effect loads today instead.
+  it("discards a puzzle left over from a previous calendar day, so the next launch loads today instead of replaying it", async () => {
+    usePuzzleStore.getState().load(yesterdayKey, "medium", today, true);
+    const i = usePuzzleStore.getState().grid.findIndex((v) => v === 0);
+    usePuzzleStore.getState().setCell(i, 4);
+    await usePuzzleStore.getState().persist();
+
+    reset();
+    await usePuzzleStore.getState().hydrate(today);
+
+    expect(usePuzzleStore.getState().dayKey).toBeNull();
+    expect(usePuzzleStore.getState().grid.every((v) => v === 0)).toBe(true);
+    expect(usePuzzleStore.getState().startedAt).toBeNull();
+  });
+
+  it("keeps a puzzle that is still today's when rehydrated", async () => {
+    usePuzzleStore.getState().load(todayKey, "medium", today, false);
+    const i = usePuzzleStore.getState().grid.findIndex((v) => v === 0);
+    usePuzzleStore.getState().setCell(i, 4);
+    await usePuzzleStore.getState().persist();
+
+    reset();
+    await usePuzzleStore.getState().hydrate(today);
+
+    expect(usePuzzleStore.getState().dayKey).toBe(todayKey);
+    expect(usePuzzleStore.getState().grid[i]).toBe(4);
+  });
+
+  it("keeps yesterday's solved record even though the stale in-progress puzzle is discarded", async () => {
+    usePuzzleStore.getState().load(yesterdayKey, "easy", today, true);
+    usePuzzleStore.getState().recordSolve(90_000);
+    await usePuzzleStore.getState().persist();
+
+    reset();
+    await usePuzzleStore.getState().hydrate(today);
+
+    expect(usePuzzleStore.getState().dayKey).toBeNull();
+    expect(usePuzzleStore.getState().solved[yesterdayKey]).toBeDefined();
   });
 });

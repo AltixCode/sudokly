@@ -1,4 +1,4 @@
-import { fireEvent } from "@testing-library/react-native";
+import { fireEvent, within } from "@testing-library/react-native";
 import React from "react";
 import { Alert } from "react-native";
 
@@ -141,12 +141,93 @@ describe("the game screen", () => {
     );
   });
 
-  it("switches difficulty, which is a different puzzle", async () => {
+  it("switches difficulty immediately when nothing has been answered yet", async () => {
     const { getByLabelText } = await renderWithProviders(<Home />);
     const easy = [...usePuzzleStore.getState().grid];
     await fireEvent.press(getByLabelText(t("diffEvil")));
     expect(usePuzzleStore.getState().difficulty).toBe("evil");
     expect(usePuzzleStore.getState().grid).not.toEqual(easy);
+  });
+
+  // A tester reported losing in-progress answers to a mistake tap on another
+  // level chip. Switching now confirms first whenever there is an answer on
+  // the board that a free player did not merely get for free (the puzzle is
+  // not yet solved) — see the two tests below.
+  it("asks for confirmation before switching level once an answer is on the board, and keeps everything on cancel", async () => {
+    const alert = jest
+      .spyOn(Alert, "alert")
+      .mockImplementation(() => undefined);
+    const { getByLabelText } = await renderWithProviders(<Home />);
+    const i = usePuzzleStore.getState().grid.findIndex((v) => v === 0);
+    const row = Math.floor(i / 9) + 1;
+    const col = (i % 9) + 1;
+    await fireEvent.press(
+      getByLabelText(
+        t("cellLabel", {
+          row: String(row),
+          col: String(col),
+          value: t("cellEmpty"),
+        }),
+      ),
+    );
+    await fireEvent.press(getByLabelText("5"));
+    const gridWithAnswer = [...usePuzzleStore.getState().grid];
+
+    await fireEvent.press(getByLabelText(t("diffEvil")));
+
+    expect(alert).toHaveBeenCalledWith(
+      t("switchLevelConfirmTitle"),
+      t("switchLevelConfirmBody"),
+      expect.any(Array),
+    );
+    // Cancelled (the mock never invokes a button): nothing switched or lost.
+    expect(usePuzzleStore.getState().difficulty).toBe("easy");
+    expect(usePuzzleStore.getState().grid).toEqual(gridWithAnswer);
+  });
+
+  it("switches level and discards the board once the player confirms", async () => {
+    jest.spyOn(Alert, "alert").mockImplementation((_title, _msg, buttons) => {
+      const confirm = buttons?.find(
+        (b) => b.text === t("switchLevelConfirmCta"),
+      );
+      confirm?.onPress?.();
+    });
+    const { getByLabelText } = await renderWithProviders(<Home />);
+    const i = usePuzzleStore.getState().grid.findIndex((v) => v === 0);
+    const row = Math.floor(i / 9) + 1;
+    const col = (i % 9) + 1;
+    await fireEvent.press(
+      getByLabelText(
+        t("cellLabel", {
+          row: String(row),
+          col: String(col),
+          value: t("cellEmpty"),
+        }),
+      ),
+    );
+    await fireEvent.press(getByLabelText("5"));
+
+    await fireEvent.press(getByLabelText(t("diffEvil")));
+
+    expect(usePuzzleStore.getState().difficulty).toBe("evil");
+  });
+
+  // A tester asked for a phone-style keypad (1-2-3 / 4-5-6 / 7-8-9) instead
+  // of a wrapping row that split 8 and 9 onto their own line.
+  it("lays the number pad out as three rows of three, phone-style", async () => {
+    const { getByTestId } = await renderWithProviders(<Home />);
+
+    const rows = [
+      ["1", "2", "3"],
+      ["4", "5", "6"],
+      ["7", "8", "9"],
+    ];
+    rows.forEach((labels, rowIndex) => {
+      const row = getByTestId(`numpad-row-${rowIndex}`);
+      labels.forEach((label) => {
+        expect(within(row).getByLabelText(label)).toBeTruthy();
+      });
+    });
   });
 
   it("routes to the archive and settings", async () => {

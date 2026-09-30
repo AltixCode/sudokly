@@ -63,14 +63,16 @@ interface PuzzleState {
   setCell: (index: number, value: number) => void;
   toggleMark: (index: number, value: number) => void;
   autoFillMarks: (isPremium: boolean) => "filled" | "locked";
-  requestHint: (isPremium: boolean) => "given" | "limit-reached" | "none-available";
+  requestHint: (
+    isPremium: boolean,
+  ) => "given" | "limit-reached" | "none-available";
   applyLastHint: () => void;
   clearHint: () => void;
   conflictIndices: () => number[];
   isSolvedNow: () => boolean;
   recordSolve: (ms: number) => void;
   persist: () => Promise<void>;
-  hydrate: () => Promise<void>;
+  hydrate: (today: Date) => Promise<void>;
 }
 
 const emptyGrid = (): Grid => new Array<number>(CELLS).fill(0);
@@ -242,7 +244,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     }
   },
 
-  async hydrate() {
+  async hydrate(today) {
     try {
       const raw = await AsyncStorage.getItem(PUZZLE_CACHE_KEY);
       if (!raw) return;
@@ -256,14 +258,25 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
         typeof record.solution === "string" ? parseGrid(record.solution) : null;
       const grid =
         typeof record.grid === "string" ? parseGrid(record.grid) : null;
-      const usable = givens && solution && grid;
+      const restoredDayKey =
+        typeof record.dayKey === "string" ? record.dayKey : null;
+      // A tester reported the game looking the same every day. It was this: a
+      // puzzle saved on one calendar day was restored as-is on every later
+      // launch, because the game screen only auto-loads today's puzzle when
+      // no dayKey is already set — and once anything had ever been saved, it
+      // never was. A day key from any day but today is stale and discarded
+      // (not just "unusable"), leaving dayKey null so the game screen's own
+      // effect loads a fresh puzzle for today instead of replaying yesterday's.
+      const stale =
+        restoredDayKey !== null && restoredDayKey !== dateKey(today);
+      const usable = !stale && givens && solution && grid;
 
       set({
         solved: validSolved(record.solved),
-        // Anything short of all three grids parsing means there is no coherent puzzle to
-        // resume, and half a restored puzzle is worse than none.
-        dayKey:
-          usable && typeof record.dayKey === "string" ? record.dayKey : null,
+        // Anything short of all three grids parsing (or a stale day) means
+        // there is no coherent puzzle to resume, and half a restored puzzle
+        // is worse than none.
+        dayKey: usable ? restoredDayKey : null,
         difficulty: DIFFICULTIES.includes(record.difficulty as Difficulty)
           ? (record.difficulty as Difficulty)
           : "easy",
